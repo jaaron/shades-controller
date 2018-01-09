@@ -1,0 +1,19 @@
+.content {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    background-color: #fff;
+    color: #444;
+    max-height: 300px;
+}
+
+.slider_div {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.slider_title {
+    text-transform: capitalize;
+}

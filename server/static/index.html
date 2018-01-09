@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Shade Control</title>
+    <meta name="viewport" content="width==device-width, initial-scale=1">
+    <link rel="stylesheet" href="/ui/rangeslider.css">
+    <link rel="stylesheet" href="/ui/grid.css">
+</head>
+
+  <body>
+    <div id="body-div" class="content">
+    </div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+<script src="/ui/rangeslider.js"></script>
+    <script>
+    $(function() {
+
+	var $document = $(document);
+        var selector = '[data-rangeslider]';
+        var $element = $(selector);
+
+        // For ie8 support
+        var textContent = ('textContent' in document) ? 'textContent' : 'innerText';
+
+	function createSlider(shade){
+	    var div = document.createElement('div');
+	    div.setAttribute('class', 'slider_div');
+	    var slider = document.createElement('input');
+	    slider.setAttribute('type', 'range');
+	    slider.setAttribute('min', '0');
+	    slider.setAttribute('max', '100');
+	    slider.setAttribute('shade_id', shade.endpointId);
+	    slider.setAttribute('data-orientation', 'vertical');
+	    slider.setAttribute('data-rangeslider', '');
+
+	    var p = document.createElement('p');
+	    p.setAttribute('class', 'slider_title');
+	    p.appendChild(document.createTextNode(shade.friendlyName));
+	    
+	    div.appendChild(p);
+	    div.appendChild(slider);
+	    div.appendChild(document.createElement('output'));
+
+	    var body_div = document.getElementById("body-div");
+	    /*
+	      body_div.style['grid-template-columns'] = body_div.style['grid-template-columns'] + " 100px";
+	    */	    
+	    body_div.appendChild(div);
+	    $(`[shade_id=${shade.endpointId}]`).rangeslider({
+		// Deactivate the feature detection
+		polyfill: false,
+
+		// Callback function
+		onInit: function() {
+		    fetchValue(this.$element[0]);
+                    valueOutput(this.$element[0]);
+		},
+
+		// Callback function
+		onSlide: function(position, value) {
+                    console.log('onSlide');
+                    console.log('position: ' + position, 'value: ' + value);
+		    valueOutput(this.$element[0]);
+		},
+
+		// Callback function
+		onSlideEnd: function(position, value) {
+                    console.log('onSlideEnd');
+                    console.log('position: ' + position, 'value: ' + value);
+		    valueOutput(this.$element[0]);
+		    putValue(this.$element[0]);
+		}
+            });
+
+	    window.setInterval(() => {fetchValue(slider)}, 15000);
+	}
+
+        // Example functionality to demonstrate a value feedback
+        function valueOutput(element) {
+            var value = element.value;
+            var output = element.parentNode.getElementsByTagName('output')[0] || element.parentNode.parentNode.getElementsByTagName('output')[0];
+	    output[textContent] = value;
+        }
+
+	function putValue(element){
+	    var xhr = new XMLHttpRequest();
+	    xhr.open('PUT', `/shade/${element.getAttribute('shade_id')}/${element.value}`);
+	    xhr.send();
+	}
+	
+	function fetchValue(element){
+	    var xhr = new XMLHttpRequest();
+	    xhr.onload = function(){
+		var data = JSON.parse(this.responseText);
+		element.value = data.brightness;
+		$(`[shade_id=${element.getAttribute('shade_id')}]`).rangeslider('update', true);
+		console.log(element);
+                console.log(element.getAttribute('shade_id') + ": " + element.value);
+	    }
+	    xhr.open('GET', `/shade/${element.getAttribute('shade_id')}`);
+	    xhr.send();
+	}
+
+	function loadShades(){
+	    var xhr = new XMLHttpRequest();
+	    xhr.onload = function(){
+		var shade_list = JSON.parse(this.responseText);
+		for(idx in shade_list){
+		    createSlider(shade_list[idx]);
+		}
+	    }
+	    xhr.open('GET', "/shades");
+	    xhr.send();
+	}
+	
+	loadShades();
+    });
+    </script>
+</body> </html>
