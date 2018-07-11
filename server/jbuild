@@ -3,6 +3,6 @@
 ;; This declare the hello_world executable implemented by hello_world.ml
 (executable
  ((name shades_server)
-  (libraries (core opium lwt yojson ppx_deriving_yojson.runtime))
-  (preprocess (pps (ppx_deriving ppx_deriving_yojson lwt.ppx))))
+  (libraries (core opium lwt yojson ppx_deriving_yojson.runtime mosquitto))
+  (preprocess (pps (ppx_deriving ppx_deriving_yojson lwt.ppx ppx_let))))
 )

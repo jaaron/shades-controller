@@ -19,13 +19,15 @@ type shade = {
   name : string;
   description: string;
   ip   : inet_addr;
-  port : int;
   zone : (string [@default "default"]);
   state : int ref [@default ref 100];
   pending : (int option ref) [@default ref (Some 100)];
 } [@@deriving yojson];;
 
 type shade_list = shade list
+[@@deriving yojson];;
+
+type status_msg = {shade_id : string; status : int}
 [@@deriving yojson];;
 
 let shades_save_file = "shades.json"
@@ -45,6 +47,52 @@ let load_shades () = In_channel.read_all shades_save_file
 		     |> Result.ok_exn
 		     |> List.map ~f:(fun shade -> (shade.id, shade))
 		     |> fun l -> shades := l
+
+let now_string () = (Time.(to_string (now ())));;
+let message_of_eunix (`EUnix e) = Unix.Error.message e;;
+let failwith_eunix e = Result.map_error ~f:message_of_eunix e
+                       |> Result.ok_or_failwith;;
+
+
+let (>>=) = Lwt.(>>=);;
+let (>|=) = Lwt.(>|=);;
+let return = Lwt.return;;
+
+let handle_mqtt_msg msg =
+  match Mosquitto.Message.topic msg with
+  | "shade_status" -> ((let open Result.Let_syntax in
+                        let%bind msg   = status_msg_of_yojson (Yojson.Safe.from_string (Mosquitto.Message.payload msg)) in
+                        let%bind shade = List.Assoc.find ~equal:(=) (!shades) msg.shade_id
+                                         |> Result.of_option ~error:(sprintf "Received status update for unknown shade ID: \"%s\""
+                                                                       msg.shade_id) in
+                        return (msg.status,shade))
+                       |> function
+                       | Error e           -> Lwt_io.printf "%s: MQTT Error: %s\n" (now_string ()) e
+                       | Ok (status,shade) -> (Lwt_io.printf "%s: MQTT got state %d for shade %s\n" (now_string ()) status shade.id
+                                               >|= fun _ -> shade.state := status))
+  | "registration" -> (Lwt_io.printf "Handling registration...\n"
+                       >>= fun _    -> return (Mosquitto.Message.payload msg)
+                       >>= fun body -> Lwt_io.printf "\t\"%s\"" (String.escaped body)
+                       >>= fun _ -> (
+                         let json = Yojson.Safe.from_string body in
+                         let new_shade = shade_of_yojson json in
+                         match new_shade with
+                         | Error e -> Lwt_io.printf "%s: MQTT Error: %s\n" (now_string ()) e
+                         | Ok shade -> (Lwt_io.printf "Adding controller %s\n" shade.id
+                                        >|= (fun _ -> shades := List.Assoc.add ~equal:(=) (!shades) shade.id shade)
+                                        >|= save_shades)))
+  | topic -> Lwt_io.printf "%s: MQTT Error received message with unknown topic \"%s\"" (now_string ()) topic
+
+
+let mosquitto =
+  (let open Result.Let_syntax in
+   let%bind h = Mosquitto.create "shades-server" false in
+   let () = Mosquitto.set_callback_message h (fun msg -> Lwt_preemptive.run_in_main (fun _ -> handle_mqtt_msg msg)) in
+   let%bind () = Mosquitto.connect h "localhost" 1883 (-1) in
+   let%bind () = Mosquitto.subscribe h "shade_status" 0 in
+   let%bind () = Mosquitto.subscribe h "registration" 0 in
+   return h)
+  |> failwith_eunix
 
 let validate_token tok =
   let open Lwt in
@@ -72,6 +120,7 @@ let validate_token tok =
   | Result.Ok _ -> return true
   | Result.Error e -> (Lwt_io.fprintf Lwt_io.stderr "Authorization Error: %s\n" e
                        >>= fun _ -> return false)
+;;
 
 let endpoint_of_shade s =
   Alexa_home_automation.{
@@ -98,10 +147,6 @@ let endpoint_of_shade s =
     ]
   };;
 
-let (>>=) = Lwt.(>>=);;
-let (>|=) = Lwt.(>|=);;
-let return = Lwt.return;;
-
 (* opium uses ezjson which doesn't have a nice deriver...grrr *)
 let rec ezjson_of_yojson =
   let open Ezjsonm in
@@ -125,22 +170,6 @@ let send_error ?code:(code = `Internal_server_error) msg =
   Lwt_io.printf "\tError: %s\n" msg
   >|= (fun _ -> (`Json Ezjsonm.(dict ["error", string msg])))
   >>= respond' ~code
-
-let register = post "/register" begin fun req ->
-    Lwt_io.printf "Handling registration...\n"
-    >>= fun _ -> App.string_of_body_exn req
-    >>= fun body -> Lwt_io.printf "\t\"%s\"" (String.escaped body)
-    >>= fun _ -> (
-      let json = Yojson.Safe.from_string body in
-      let new_shade = shade_of_yojson json in
-      match new_shade with
-      | Error e -> send_error e
-      | Ok shade -> (Lwt_io.printf "Adding controller %s\n" shade.id
-                     >|= (fun _ -> shades := List.Assoc.add ~equal:(=) (!shades) shade.id shade)
-                     >|= save_shades
-		     >|= (fun _ -> `Json (Ezjsonm.(dict ["response", string "OK"])))
-                     >>= respond'))
-  end
 
 let poll = post "/shade/:id/poll" begin fun req ->
     let id = param req "id" in
@@ -178,7 +207,11 @@ let set shade_id v =
   let shade = List.Assoc.find ~equal:(=) (!shades) shade_id in
   match shade with
   | Some s -> s.pending := Some v ;
-    respond' (`Json (Ezjsonm.(dict ["brightness", int v])))
+    (match Mosquitto.publish mosquitto (Mosquitto.Message.create
+                                          ~topic:shade_id
+                                          ~qos:0 (sprintf "SET %d" v)) with
+    | Ok () -> respond' (`Json (Ezjsonm.(dict ["brightness", int v])))
+    | Error e -> send_error (message_of_eunix e))
   | None   -> send_error "No such device"
 
 let get_percentage = get "/shade/:id" begin fun req ->
@@ -205,7 +238,7 @@ let close_shade = put "/shade/:id/close" begin fun req ->
 
 let log = Rock.Middleware.create ~name:"log" ~filter:(fun handler req ->
     Lwt_io.printf "%s: Got request %s %s\n"
-      Time.(to_string (now ()))
+      (now_string ())
       (Cohttp.Code.string_of_method (Request.meth req))
       (Uri.to_string (Request.uri req))
     >>= fun _ -> handler req)
@@ -223,22 +256,20 @@ let ui = Middleware.static ~local_path:"./static" ~uri_prefix:"/ui"
 
 (* Private HTTP only interface (port 8080).
  * NB: Do not expose this to the internet! *)
-let registration = App.empty
-                   |> App.port 8080
-                   |> middleware log
-		   |> enumerate
-                   |> register
-                   |> poll
-		   |> set_percentage
-		   |> get_percentage
-		   |> middleware ui
-                   |> App.start
+let private_app = App.empty
+                  |> App.port 8080
+                  |> middleware log
+	          |> enumerate
+                  |> poll
+                  |> set_percentage
+                  |> get_percentage
+                  |> middleware ui
+                  |> App.start
 
 let control = App.empty
               |> App.ssl ~cert:"cert.pem" ~key:"key.pem"
               |> App.port 8443
               |> middleware log
-	      |> register
               |> middleware auth
 	      |> enumerate
 	      |> set_percentage
@@ -247,7 +278,16 @@ let control = App.empty
               |> close_shade
               |> App.start
 
-let main = Lwt.join [registration; control]
+let status_loop () = Mosquitto.loop_forever mosquitto 1000 1
+                     |> function
+                     | Ok () -> Lwt.async (fun _ -> Lwt_io.printf "%s: MQTT loop exited OK?\n"
+                                              (now_string ()))
+                     | Error e ->
+                       Lwt.async (fun _ -> Lwt_io.printf "%s: MQTT loop exited: %s\n"
+                                     (now_string ()) (message_of_eunix e));;
+
+let main = Lwt.join [private_app; control; (Lwt_preemptive.detach status_loop ())]
+
 let _ = Lwt.on_termination main save_shades;
   load_shades () ;
   Lwt_main.run main;;

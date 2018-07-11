@@ -28,7 +28,8 @@ $ sed -i -e 's/user@host\.com/me@mydomain.com/' server/shades_server.ml
 Next, install the dependencies, assuming you have `opam` installed:
 
 ```
-$ opam install jbuilder core opium lwt yojson ppx_deriving_yojson
+$ opam depext mosquitto
+$ opam install jbuilder core opium lwt yojson ppx_deriving_yojson mosquitto
 ```
 
 Then compile
