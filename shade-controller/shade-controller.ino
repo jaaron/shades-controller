@@ -254,6 +254,15 @@ void cmd_callback(char *data, uint16_t len){
 	if(tmp >= 0 && tmp <= 100){
 	    target = percent_to_distance(tmp);
 	    Serial.printf("Set target to %ld\n", target);
+	    if(target < distance){
+		Serial.print("BACKWARD!\n");
+		direction = -1;
+		motor_down();
+	    }else if(target > distance){
+		Serial.print("FORWARD!");
+		direction = 1;
+		motor_up();
+	    }
 	}
     }else if(strncmp("CALIBRATE", data, 9) == 0){
 	calibrate();
@@ -328,15 +337,6 @@ void loop() {
 
 	    target = percent_to_distance(pct);
 
-	    if(target < distance){
-		Serial.print("BACKWARD!\n");
-		direction = -1;
-		motor_down();
-	    }else if(target > distance){
-		Serial.print("FORWARD!");
-		direction = 1;
-		motor_up();
-	    }
 	}
     }
     */
