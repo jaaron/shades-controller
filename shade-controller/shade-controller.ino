@@ -4,6 +4,8 @@
 #include <Adafruit_MQTT_Client.h>
 #include <Adafruit_MQTT.h>
 
+#include <EEPROM.h>
+
 #define UP FORWARD
 #define DOWN BACKWARD
 
@@ -30,6 +32,8 @@ char incomingPacket[255];
 char buffer[128];
 
 long dist_max = 100;
+int dist_max_eeprom_addr = 0;
+
 long dist_min = 0;
 long distance = 0;
 long target = 0;
@@ -244,6 +248,8 @@ void calibrate(void){
   }while(1);
   motor_stop();
   dist_max -= 1; /* give a little buffer */  
+  EEPROM.put(dist_max_eeprom_addr, dist_max);
+  EEPROM.commit();
   Serial.printf("Calibrated: dist_max = %ld\n", dist_max);
 }
 
@@ -266,12 +272,17 @@ void cmd_callback(char *data, uint16_t len){
 	}
     }else if(strncmp("CALIBRATE", data, 9) == 0){
 	calibrate();
+    }else if(strncmp("SETMAX ", data, 7) == 0){
+	dist_max = strtol(data + 7, NULL, 10);
+	EEPROM.put(dist_max_eeprom_addr, dist_max);
+	EEPROM.commit();
+	Serial.printf("Set dist_max = %ld\n", dist_max);
     }
 }
 
 void setup() {
   Serial.begin(115200);
-
+  
   WiFi.begin(ssid, wifi_pass);
   Serial.println();
   Serial.print("Connecting");
@@ -289,7 +300,16 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
   delay(500);
   digitalWrite(LED_BUILTIN, HIGH);
-
+  EEPROM.begin(512);
+  
+  EEPROM.get(dist_max_eeprom_addr, dist_max);
+  if(dist_max < 0){
+      Serial.printf("Max distance uninitialized (got %ld)...defaulting to 1 meter\n", dist_max);
+      dist_max = 1000;
+  }else{
+      Serial.printf("Max distance is %ld\n", dist_max);
+  }
+  
   motor_init();
   distance_init();
   
