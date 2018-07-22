@@ -28,6 +28,7 @@ $ sed -i -e 's/user@host\.com/me@mydomain.com/' server/shades_server.ml
 Next, install the dependencies, assuming you have `opam` installed:
 
 ```
+$ sudo apt-get install mosquitto
 $ opam depext mosquitto
 $ opam install jbuilder core opium lwt yojson ppx_deriving_yojson mosquitto
 ```
@@ -121,6 +122,31 @@ Wiring
   and voltage and ground connected appropriately
 * The battery should be wired to the Vin/Gnd terminals on the motor
   shield, with the Vin/Vm jumper installed
+
+Calibration
+===========
+
+Prior to first use, you need to calibrate the maximum height of your
+shades. With the controoler on, log into your MQTT broker and use the
+`mosquitto_pub` command to issue the `CALIBRATE` instruction.
+
+```
+$ mosquitto_pub -t shade-controller-00 -m "CALIBRATE"
+```
+
+This *should* cause the controller to run its motor to raise the shade
+until it stops moving, then set the current distance as the max
+distance. In practice, it's easiest to just manually open the shade
+all the way prior to sending the command. You can also use `SETMAX mm`
+to set the maximum distance to `mm` in millimeters.
+
+```
+$ mosquitto_pub -t shade-controller-00 -m "SETMAX 1200"
+```
+
+Once the controller has been calibrated it will store the maximum
+distance in EEPROM, so it shouldn't require recalibration. Adding a UI
+for calibration is on the todo list.
 
 Alexa Skill
 ===========
