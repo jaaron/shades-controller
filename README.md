@@ -109,7 +109,10 @@ on the market). The parts are:
   
   * settings (x0): don't print this, it's just a master settings file
     included by the other scad files to ensure consistency.
-  
+
+See the thingiverse page: https://www.thingiverse.com/thing:3014140
+for pre-exported STL files.
+
 Configuring Controllers
 =======================
 
