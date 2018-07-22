@@ -77,3 +77,16 @@ thumbscrew_plate_thickness = 6;
 thumbscrew_plate_inset_h = 3;
 thumbscrew_plate_l = motor_housing_internal_y - 1;
 thumbscrew_plate_w = motor_d;
+
+/* little module to diff with a square corner to round it out */
+module chamfer(r,h){
+    translate([r, r, -1]){
+        rotate([0,0,180])
+        difference(){
+            cube([r+1,r+1,h]);
+            translate([0,0,-1]){
+                cylinder(r=r, h=h+2, $fn=64);
+            }
+        }
+    }
+}
