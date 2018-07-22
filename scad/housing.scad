@@ -73,7 +73,6 @@ module battery_housing(){
     if(with_battery_housing){
         if(!side_by_side){
             translate([-(thickness + controller_y), -(thickness + battery_height), 0]){
-                battery_total_x = max(battery_length + thickness, (controller_y + thickness + motor_housing_total_x));
                 battery_internal_x = battery_total_x - 2*thickness;
                 difference(){
                     cube([battery_total_x, battery_height + thickness, total_z]);
