@@ -65,8 +65,12 @@ controllers:
       https://www.amazon.com/gp/product/B072WSQPJN
     * US100 Ultrasonic Sensor:
       https://www.bananarobotics.com/shop/US-100-Ultrasonic-Distance-Sensor-Module
+    * NUZAMAS 3.5W 6V 600ma Mini Solar Panel Module:
+      https://www.amazon.com/gp/product/B071R3NQBP
       
-The solar charging isn't fully worked out yet.
+The solar charging isn't fully worked out yet, I'm currently using one
+of the above listed panels and a smaller 330ma panel, I'm planning to
+switch to 3x600ma to (hopefully) get better results.
 
 The SCAD files should be exported to STL and should be printable on
 any 3D printer (I used a M3D Micro which is about the smallest printer
@@ -99,6 +103,10 @@ on the market). The parts are:
     true` and `shell = false`, and once with `base = false` and `shell
     = true` (lines 23 and 24).
 
+  * solar-panel-hook (2x # of panels): this is designed to hook to the
+    underside of a siding J-strip to mount the solar panels below a
+    window.
+  
   * settings (x0): don't print this, it's just a master settings file
     included by the other scad files to ensure consistency.
   
