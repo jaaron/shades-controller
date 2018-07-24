@@ -6,9 +6,12 @@ enabled controller for roller shades. It includes:
     * A web application that manages shade controllers on the local
       network, relays commands from Alexa, and provides a simple web
       UI
+
     * A Node-JS script for an Amazon Lambda service to relay requests
       from a custom Alexa skill to the web application
+
     * An arduino sketch for a NodeMCU microcontrollers
+
     * OpenSCAD files for the housing and driver wheel for the
       controller
 
@@ -57,17 +60,22 @@ controllers:
 
     * NodeMCU ESP8266 microcontroller + Motorshield:
       https://www.amazon.com/ESP8266-Development-NodeMCU-CP2102-Shield/dp/B075VMNLZR
+
     * Pololu 99:1 Metal Gearmotor 25Dx54L:
       https://www.pololu.com/product/1587
+
     * Batteryspace LiFePO4 18650 Battery (6.4V x 1500 mah):
       http://www.batteryspace.com/lifepo418650battery64v1350mahflat864wh4aratewithpcbandpolyswitch.aspx
+
     * Amrka 6V 12V 10A Auto Solar Panel Charge Controller Battery Charge Regulator PWM
       https://www.amazon.com/gp/product/B072WSQPJN
+
     * US100 Ultrasonic Sensor:
       https://www.bananarobotics.com/shop/US-100-Ultrasonic-Distance-Sensor-Module
+
     * NUZAMAS 3.5W 6V 600ma Mini Solar Panel Module:
       https://www.amazon.com/gp/product/B071R3NQBP
-      
+
 The solar charging isn't fully worked out yet, I'm currently using one
 of the above listed panels and a smaller 330ma panel, I'm planning to
 switch to 3x600ma to (hopefully) get better results.
@@ -85,6 +93,9 @@ on the market). The parts are:
    * housing (x1): the main housing for the controller, battery,
      motor, and solar charge regulator. Print with model-on-model
      support enabled.
+
+   * housing-lid (x1): a cover for the main housing to make everything
+     neat and tidy.
 
    * motor-top (x1): a rounded piece to fit between the motor and the
      top of the housing, this gives the thumbscrews something to push
@@ -106,7 +117,7 @@ on the market). The parts are:
   * solar-panel-hook (2x # of panels): this is designed to hook to the
     underside of a siding J-strip to mount the solar panels below a
     window.
-  
+
   * settings (x0): don't print this, it's just a master settings file
     included by the other scad files to ensure consistency.
 
